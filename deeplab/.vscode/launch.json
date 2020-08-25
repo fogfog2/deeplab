@@ -17,10 +17,10 @@
                 "--train_batch_size=12",
                 "--training_number_of_steps=360000",
                 "--base_learning_rate=0.01",
-                "--tf_initial_checkpoint=/home/sj/src/models/research/deeplab/datasets/pascal_voc_seg/init_models/mobilenet_v2_1.0_224/mobilenet_v2_1.0_224.ckpt",
+                "--tf_initial_checkpoint=./datasets/pascal_voc_seg/init_models/mobilenet_v2_1.0_224/mobilenet_v2_1.0_224.ckpt",
                 "--fine_tune_batch_norm=true",
-                "--train_logdir=/home/sj/src/models/research/deeplab/datasets/pascal_voc_seg/exp/train_on_trainaug_set/train_test22",
-                "--dataset_dir=/home/sj/src/models/research/deeplab/datasets/pascal_voc_seg/tfrecord_coco_",
+                "--train_logdir=./datasets/pascal_voc_seg/exp/train_on_trainaug_set/train_test22",
+                "--dataset_dir=./datasets/pascal_voc_seg/tfrecord_coco_",
                 "--num_clones=1"]
         }
     ]
