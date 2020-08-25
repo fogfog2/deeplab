@@ -333,6 +333,17 @@ def multi_scale_logits(images,
           outputs_to_logits[output].dtype)
 
     # Return when only one input scale.
+    if model_options.use_context_path:
+      for output in sorted(model_options.outputs_to_num_classes):
+        outputs_to_scales_to_logits[output][
+            MERGED_LOGITS_SCOPE] = outputs_to_logits[output]
+        if model_options.use_auxiliary_loss:
+          outputs_to_scales_to_logits[output][
+            'output_2'] = outputs_to_logits['output_2']
+          outputs_to_scales_to_logits[output][
+            'output_3'] = outputs_to_logits['output_3']
+      return outputs_to_scales_to_logits
+
     if len(image_pyramid) == 1:
       for output in sorted(model_options.outputs_to_num_classes):
         outputs_to_scales_to_logits[output][
@@ -608,11 +619,11 @@ def _get_logits(images,
         is_training=is_training,
         fine_tune_batch_norm=fine_tune_batch_norm,
         use_bounded_activation=model_options.use_bounded_activation)
-  
+  outputs_to_logits = {}
   if model_options.use_context_path:    
     features_shape = features.get_shape().as_list()
     image_shape = images.get_shape().as_list()
-    features = bisnet_module(
+    features, features_a, features_b = bisnet_module(
       features,
       images,
       end_points,
@@ -621,23 +632,53 @@ def _get_logits(images,
       is_training=is_training,
       fine_tune_batch_norm=fine_tune_batch_norm,
       weight_decay=weight_decay)
-
-
-  outputs_to_logits = {}
-  for output in sorted(model_options.outputs_to_num_classes):
-    if model_options.decoder_output_is_logits:
-      outputs_to_logits[output] = tf.identity(features,
-                                              name=output)
-    else:
-      outputs_to_logits[output] = get_branch_logits(
-          features,
-          model_options.outputs_to_num_classes[output],
-          model_options.atrous_rates,
-          aspp_with_batch_norm=model_options.aspp_with_batch_norm,
-          kernel_size=model_options.logits_kernel_size,
-          weight_decay=weight_decay,
-          reuse=reuse,
-          scope_suffix=output)
+    for output in sorted(model_options.outputs_to_num_classes):
+      if model_options.decoder_output_is_logits:
+          outputs_to_logits[output] = tf.identity(features,
+                                                  name=output)
+      else:
+          outputs_to_logits[output] = get_branch_logits(
+              features,
+              model_options.outputs_to_num_classes[output],
+              model_options.atrous_rates,
+              aspp_with_batch_norm=model_options.aspp_with_batch_norm,
+              kernel_size=model_options.logits_kernel_size,
+              weight_decay=weight_decay,
+              reuse=reuse,
+              scope_suffix=output)
+          outputs_to_logits['output_2'] = get_branch_logits(
+              features_a,
+              model_options.outputs_to_num_classes[output],
+              model_options.atrous_rates,
+              aspp_with_batch_norm=model_options.aspp_with_batch_norm,
+              kernel_size=model_options.logits_kernel_size,
+              weight_decay=weight_decay,
+              reuse=reuse,
+              scope_suffix=output+'_2')
+          outputs_to_logits['output_3'] = get_branch_logits(
+              features_b,
+              model_options.outputs_to_num_classes[output],
+              model_options.atrous_rates,
+              aspp_with_batch_norm=model_options.aspp_with_batch_norm,
+              kernel_size=model_options.logits_kernel_size,
+              weight_decay=weight_decay,
+              reuse=reuse,
+              scope_suffix=output+'_3')
+  else:
+    for output in sorted(model_options.outputs_to_num_classes):
+      if model_options.decoder_output_is_logits:
+        outputs_to_logits[output] = tf.identity(features,
+                                                name=output)
+      else:
+        outputs_to_logits[output] = get_branch_logits(
+            features,
+            model_options.outputs_to_num_classes[output],
+            model_options.atrous_rates,
+            aspp_with_batch_norm=model_options.aspp_with_batch_norm,
+            kernel_size=model_options.logits_kernel_size,
+            weight_decay=weight_decay,
+            reuse=reuse,
+            scope_suffix=output)
 
   return outputs_to_logits
 
@@ -676,22 +717,24 @@ def bisnet_module(features,
     weight_decay)
 
  
-  resize_height = tf.shape(image)[1]
-  resize_width = tf.shape(image)[2]
-  net = _resize_bilinear(net,
-                      [resize_height, resize_width],
-                      net.dtype)
+  # resize_height = tf.shape(image)[1]
+  # resize_width = tf.shape(image)[2]
 
+  # net = _resize_bilinear(net,
+  #                     [resize_height, resize_width],
+  #                     net.dtype)
  
-  net = conv1by1_3(
-      net,
-      depth,
-      model_options,
-      reuse,
-      is_training,
-      weight_decay,
-      BISE_SCOPE+"logits")
-  return net
+  # net = conv1by1_3(
+  #     net,
+  #     depth,
+  #     model_options,
+  #     reuse,
+  #     is_training,
+  #     weight_decay,
+  #     BISE_SCOPE+"logits")
+
+
+  return net, arm_8, arm_16 
   
 
 def feature_fusion_module(spatial_net, context_net, depth,
