@@ -335,8 +335,10 @@ def multi_scale_logits(images,
     # Return when only one input scale.
     if model_options.use_context_path:
       for output in sorted(model_options.outputs_to_num_classes):
+        # outputs_to_scales_to_logits[output][
+        #     MERGED_LOGITS_SCOPE] = outputs_to_logits[output]
         outputs_to_scales_to_logits[output][
-            MERGED_LOGITS_SCOPE] = outputs_to_logits[output]
+            MERGED_LOGITS_SCOPE] = outputs_to_logits['output_2']
         if model_options.use_auxiliary_loss:
           outputs_to_scales_to_logits[output][
             'output_2'] = outputs_to_logits['output_2']
@@ -463,7 +465,7 @@ def extract_features(images,
           reuse=reuse):
         with slim.arg_scope([batch_norm], **batch_norm_params):
           #depth = model_options.aspp_convs_filters
-          depth=256
+          depth=128
           branch_logits = []
 
           if model_options.add_image_level_feature:
@@ -623,7 +625,7 @@ def _get_logits(images,
   if model_options.use_context_path:    
     features_shape = features.get_shape().as_list()
     image_shape = images.get_shape().as_list()
-    features, features_a, features_b = bisnet_module(
+    features, features_a, features_b = bisnet_module_b(
       features,
       images,
       end_points,
@@ -716,26 +718,72 @@ def bisnet_module(features,
     fine_tune_batch_norm,
     weight_decay)
 
- 
-  # resize_height = tf.shape(image)[1]
-  # resize_width = tf.shape(image)[2]
-
-  # net = _resize_bilinear(net,
-  #                     [resize_height, resize_width],
-  #                     net.dtype)
- 
-  # net = conv1by1_3(
-  #     net,
-  #     depth,
-  #     model_options,
-  #     reuse,
-  #     is_training,
-  #     weight_decay,
-  #     BISE_SCOPE+"logits")
-
 
   return net, arm_8, arm_16 
+def bisnet_module_b(features,
+      image,
+      end_points,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay):
   
+  spatial_net = spatial_path_module(image,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay)
+
+
+  arm_8, arm_16 = context_path_module_b(features,
+    end_points,
+    spatial_net,
+    model_options,
+    reuse,
+    is_training,
+    fine_tune_batch_norm,
+    weight_decay)
+
+  depth=21  
+  net = feature_fusion_module(spatial_net, arm_8, depth,
+    model_options,
+    reuse,
+    is_training,
+    fine_tune_batch_norm,
+    weight_decay)
+
+  depth = 256
+  net = convblock2(net, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'preLogit_convblock_ffm')
+
+  depth = 64
+  arm_8 = convblock2(arm_8, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'preLogit_convblock_arm8')
+  
+  arm_16 = convblock2(arm_16, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'preLogit_convblock_arm16')
+    
+  return net, arm_8, arm_16   
 
 def feature_fusion_module(spatial_net, context_net, depth,
     model_options,
@@ -755,7 +803,8 @@ def feature_fusion_module(spatial_net, context_net, depth,
       reuse,
       is_training,
       fine_tune_batch_norm,
-      weight_decay)
+      weight_decay,
+      'ffmconvblock')
 
   net = ffm_sub_modlue(
       net, 
@@ -896,6 +945,87 @@ def context_path_module(features,
 
   return concat_logits, arm_8, arm_16
 
+def context_path_module_b(features,
+      end_points,
+      spatial_net,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay):
+  branch_logits =[]  
+  resize_height = tf.shape(spatial_net)[1]
+  resize_width = tf.shape(spatial_net)[2]
+
+  depth = 32*6
+  arm_8 = attention_refinement_modlue(end_points['layer_7/depthwise_output'],
+      depth = depth,
+      model_options = model_options,
+      reuse = reuse,
+      is_training=is_training,
+      fine_tune_batch_norm=fine_tune_batch_norm,
+      weight_decay=weight_decay,
+      scope=ARM_SCOPE+"1") 
+  # arm_8 = _resize_bilinear(arm_8,
+  #                     [resize_height, resize_width],
+  #                     arm_8.dtype)
+
+  depth = 96*6
+  arm_16 = attention_refinement_modlue(end_points['layer_14/depthwise_output'],
+      depth = depth,
+      model_options = model_options,
+      reuse = reuse,
+      is_training=is_training,
+      fine_tune_batch_norm=fine_tune_batch_norm,
+      weight_decay=weight_decay,
+      scope=ARM_SCOPE+"2") 
+
+  depth=128
+  arm_8 = conv1by1_3(
+      arm_8,
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_b_arm8")
+
+  arm_16 = conv1by1_3(
+      arm_16,
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_b_arm16")
+    
+  arm_16 += features
+  arm_16 = _resize_bilinear(arm_16,
+                      [resize_height, resize_width],
+                      arm_16.dtype)
+
+  depth = 128
+  arm_16 = convblock2(arm_16, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'arm_convblock16')
+
+  arm_8 += arm_16
+  arm_8 = convblock2(arm_8, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'arm_convblock16')
+
+
+  return arm_8, arm_16
 
     
 def attention_refinement_modlue(
@@ -1064,7 +1194,8 @@ def convblock2(features,
       reuse,
       is_training,
       fine_tune_batch_norm,
-      weight_decay):
+      weight_decay,
+      scope):
   #1x1conv, #batchnorm #sigmoid(relu)
   batch_norm_params = utils.get_batch_norm_params(
           decay=0.9997,
@@ -1082,7 +1213,7 @@ def convblock2(features,
         activation_fn=activation_fn,
         normalizer_fn=batch_norm,
         padding='SAME',
-        scope=FFM_SCOPE+"convblock",
+        scope=scope,
         stride=1,
         reuse=reuse):
     with slim.arg_scope([batch_norm], **batch_norm_params):

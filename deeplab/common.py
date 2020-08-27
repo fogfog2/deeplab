@@ -158,7 +158,7 @@ flags.DEFINE_boolean('use_feature_fusion_module', True, 'Bisenet FFM')
 
 flags.DEFINE_boolean('use_attention_refinement_module', True, 'Bisenet ARM')
 
-flags.DEFINE_boolean('use_auxiliary_loss', False, 'Auxiliary Loss')
+flags.DEFINE_boolean('use_auxiliary_loss', True, 'Auxiliary Loss')
 
 FLAGS = flags.FLAGS
 
