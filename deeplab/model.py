@@ -736,7 +736,7 @@ def bisnet_module_b(features,
       fine_tune_batch_norm,
       weight_decay)
 
-
+  #a
   arm_8, arm_16 = context_path_module_b(features,
     end_points,
     spatial_net,
