@@ -160,6 +160,10 @@ flags.DEFINE_boolean('use_attention_refinement_module', True, 'Bisenet ARM')
 
 flags.DEFINE_boolean('use_auxiliary_loss', True, 'Auxiliary Loss')
 
+flags.DEFINE_integer('bisenet_depth', 256, 'depth')
+
+flags.DEFINE_boolean('bisenet_mode_a', False, 'a')
+
 FLAGS = flags.FLAGS
 
 # Constants
@@ -218,6 +222,8 @@ class ModelOptions(
         'use_feature_fusion_module',
         'use_attention_refinement_module',
         'use_auxiliary_loss',
+        'bisenet_depth',
+        'bisenet_mode_a'
     ])):
   """Immutable class to hold model options."""
 
@@ -302,7 +308,9 @@ class ModelOptions(
         FLAGS.use_context_path,
         FLAGS.use_feature_fusion_module,
         FLAGS.use_attention_refinement_module,
-        FLAGS.use_auxiliary_loss)
+        FLAGS.use_auxiliary_loss,
+        FLAGS.bisenet_depth,
+        FLAGS.bisenet_mode_a)
 
   def __deepcopy__(self, memo):
     return ModelOptions(copy.deepcopy(self.outputs_to_num_classes),

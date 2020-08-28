@@ -464,8 +464,10 @@ def extract_features(images,
           stride=1,
           reuse=reuse):
         with slim.arg_scope([batch_norm], **batch_norm_params):
-          #depth = model_options.aspp_convs_filters
-          depth=128
+          if model_options.use_context_path:
+            depth = model_options.aspp_convs_filters
+          else:
+            depth= model_options.bisenet_depth
           branch_logits = []
 
           if model_options.add_image_level_feature:
@@ -625,15 +627,26 @@ def _get_logits(images,
   if model_options.use_context_path:    
     features_shape = features.get_shape().as_list()
     image_shape = images.get_shape().as_list()
-    features, features_a, features_b = bisnet_module_b(
-      features,
-      images,
-      end_points,
-      model_options,
-      reuse=reuse,
-      is_training=is_training,
-      fine_tune_batch_norm=fine_tune_batch_norm,
-      weight_decay=weight_decay)
+    if model_options.bisenet_mode_a:
+      features, features_a, features_b = bisnet_module(
+        features,
+        images,
+        end_points,
+        model_options,
+        reuse=reuse,
+        is_training=is_training,
+        fine_tune_batch_norm=fine_tune_batch_norm,
+        weight_decay=weight_decay)
+    else:
+      features, features_a, features_b = bisnet_module_b(
+        features,
+        images,
+        end_points,
+        model_options,
+        reuse=reuse,
+        is_training=is_training,
+        fine_tune_batch_norm=fine_tune_batch_norm,
+        weight_decay=weight_decay)
     for output in sorted(model_options.outputs_to_num_classes):
       if model_options.decoder_output_is_logits:
           outputs_to_logits[output] = tf.identity(features,
@@ -699,7 +712,6 @@ def bisnet_module(features,
       is_training,
       fine_tune_batch_norm,
       weight_decay)
-
 
   context_net, arm_8, arm_16 = context_path_module(features,
     end_points,
@@ -923,7 +935,7 @@ def context_path_module(features,
       weight_decay=weight_decay,
       scope=ARM_SCOPE+"2") 
 
-  depth = 256
+  depth = model_options.bisenet_depth
   arm_16 = conv1by1_3(
       arm_16,
       depth,
@@ -980,7 +992,7 @@ def context_path_module_b(features,
       weight_decay=weight_decay,
       scope=ARM_SCOPE+"2") 
 
-  depth=128
+  depth=model_options.bisenet_depth
   arm_8 = conv1by1_3(
       arm_8,
       depth,
@@ -1004,7 +1016,7 @@ def context_path_module_b(features,
                       [resize_height, resize_width],
                       arm_16.dtype)
 
-  depth = 128
+  depth = model_options.bisenet_depth
   arm_16 = convblock2(arm_16, 
       depth,
       model_options,
