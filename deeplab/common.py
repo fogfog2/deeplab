@@ -164,6 +164,8 @@ flags.DEFINE_integer('bisenet_depth', 256, 'depth')
 
 flags.DEFINE_boolean('bisenet_mode_a', False, 'a')
 
+#flags.DEFINE_boolean('ou', False, 'a')
+
 FLAGS = flags.FLAGS
 
 # Constants

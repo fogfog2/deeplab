@@ -14,7 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 """Training script for the DeepLab model.
-
 See model.py for more details and usage.
 """
 
@@ -236,7 +235,6 @@ flags.DEFINE_string(
 
 def _get_variables_to_train():
   """Returns a list of variables to train.
-
   Returns:
     A list of variables to train by the optimizer.
   """
@@ -253,7 +251,6 @@ def _get_variables_to_train():
 
 def _build_deeplab(iterator, outputs_to_num_classes, ignore_label):
   """Builds a clone of DeepLab.
-
   Args:
     iterator: An iterator of type tf.data.Iterator for images and labels.
     outputs_to_num_classes: A map from output type to the number of classes. For
@@ -522,3 +519,4 @@ if __name__ == '__main__':
   flags.mark_flag_as_required('train_logdir')
   flags.mark_flag_as_required('dataset_dir')
   tf.app.run()
+

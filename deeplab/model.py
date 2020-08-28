@@ -326,19 +326,10 @@ def multi_scale_logits(images,
         fine_tune_batch_norm=fine_tune_batch_norm,
         nas_training_hyper_parameters=nas_training_hyper_parameters)
 
-    # Resize the logits to have the same dimension before merging.
-    for output in sorted(outputs_to_logits):
-      outputs_to_logits[output] = _resize_bilinear(
-          outputs_to_logits[output], [logits_height, logits_width],
-          outputs_to_logits[output].dtype)
-
-    # Return when only one input scale.
     if model_options.use_context_path:
       for output in sorted(model_options.outputs_to_num_classes):
-        # outputs_to_scales_to_logits[output][
-        #     MERGED_LOGITS_SCOPE] = outputs_to_logits[output]
         outputs_to_scales_to_logits[output][
-            MERGED_LOGITS_SCOPE] = outputs_to_logits['output_2']
+             MERGED_LOGITS_SCOPE] = outputs_to_logits[output]
         if model_options.use_auxiliary_loss:
           outputs_to_scales_to_logits[output][
             'output_2'] = outputs_to_logits['output_2']
@@ -346,6 +337,13 @@ def multi_scale_logits(images,
             'output_3'] = outputs_to_logits['output_3']
       return outputs_to_scales_to_logits
 
+    # Resize the logits to have the same dimension before merging.
+    for output in sorted(outputs_to_logits):
+      outputs_to_logits[output] = _resize_bilinear(
+          outputs_to_logits[output], [logits_height, logits_width],
+          outputs_to_logits[output].dtype)
+
+    # Return when only one input scale.
     if len(image_pyramid) == 1:
       for output in sorted(model_options.outputs_to_num_classes):
         outputs_to_scales_to_logits[output][
@@ -969,8 +967,10 @@ def context_path_module_b(features,
   resize_height = tf.shape(spatial_net)[1]
   resize_width = tf.shape(spatial_net)[2]
 
-  depth = 32*6
-  arm_8 = attention_refinement_modlue(end_points['layer_7/depthwise_output'],
+
+
+  depth = 96*6
+  arm_8 = attention_refinement_modlue(end_points['layer_14/depthwise_output'],
       depth = depth,
       model_options = model_options,
       reuse = reuse,
@@ -982,8 +982,11 @@ def context_path_module_b(features,
   #                     [resize_height, resize_width],
   #                     arm_8.dtype)
 
-  depth = 96*6
-  arm_16 = attention_refinement_modlue(end_points['layer_14/depthwise_output'],
+  resize_height_16 = tf.shape(arm_8)[1]
+  resize_width_16 = tf.shape(arm_8)[2]
+
+  depth = 160*6
+  arm_16 = attention_refinement_modlue(end_points['layer_18/depthwise_output'],
       depth = depth,
       model_options = model_options,
       reuse = reuse,
@@ -1013,7 +1016,7 @@ def context_path_module_b(features,
     
   arm_16 += features
   arm_16 = _resize_bilinear(arm_16,
-                      [resize_height, resize_width],
+                      [resize_height_16, resize_width_16],
                       arm_16.dtype)
 
   depth = model_options.bisenet_depth
@@ -1035,7 +1038,9 @@ def context_path_module_b(features,
       fine_tune_batch_norm,
       weight_decay,
       'arm_convblock16')
-
+  arm_8 = _resize_bilinear(arm_8,
+                      [resize_height, resize_width],
+                      arm_16.dtype)
 
   return arm_8, arm_16
 
