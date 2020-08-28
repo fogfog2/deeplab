@@ -160,7 +160,7 @@ flags.DEFINE_boolean('use_attention_refinement_module', True, 'Bisenet ARM')
 
 flags.DEFINE_boolean('use_auxiliary_loss', True, 'Auxiliary Loss')
 
-flags.DEFINE_integer('bisenet_depth', 256, 'depth')
+flags.DEFINE_integer('bisenet_depth', 128, 'depth')
 
 flags.DEFINE_boolean('bisenet_mode_a', False, 'a')
 

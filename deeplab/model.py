@@ -463,9 +463,9 @@ def extract_features(images,
           reuse=reuse):
         with slim.arg_scope([batch_norm], **batch_norm_params):
           if model_options.use_context_path:
-            depth = model_options.aspp_convs_filters
-          else:
             depth= model_options.bisenet_depth
+          else:
+            depth = model_options.aspp_convs_filters
           branch_logits = []
 
           if model_options.add_image_level_feature:
