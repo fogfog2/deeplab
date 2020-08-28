@@ -77,7 +77,7 @@ V2_DEF = dict(
         op(ops.expanded_conv, stride=2, num_outputs=160),
         op(ops.expanded_conv, stride=1, num_outputs=160),
         op(ops.expanded_conv, stride=1, num_outputs=160),
-        op(ops.expanded_conv, stride=1, num_outputs=320),
+        op(ops.expanded_conv, stride=1, num_outputs=320),#18
         op(slim.conv2d, stride=1, kernel_size=[1, 1], num_outputs=1280)
     ],
 )
