@@ -162,9 +162,11 @@ flags.DEFINE_boolean('use_auxiliary_loss', True, 'Auxiliary Loss')
 
 flags.DEFINE_integer('bisenet_depth', 128, 'depth')
 
-flags.DEFINE_boolean('bisenet_mode_a', False, 'a')
+flags.DEFINE_string('bisenet_mode_a', 'c', 'a')
 
-flags.DEFINE_boolean('mobilenet_outlevel_16', True, 'ture : 8+16 false : 16+32')
+flags.DEFINE_boolean('mobilenet_outlevel_16', False, 'ture : 8+16 false : 16+32')
+
+flags.DEFINE_boolean('use_8x_arm', True, '_')
 
 FLAGS = flags.FLAGS
 
@@ -226,7 +228,8 @@ class ModelOptions(
         'use_auxiliary_loss',
         'bisenet_depth',
         'bisenet_mode_a',
-        'mobilenet_outlevel_16'
+        'mobilenet_outlevel_16',
+        'use_8x_arm'
     ])):
   """Immutable class to hold model options."""
 
@@ -314,7 +317,8 @@ class ModelOptions(
         FLAGS.use_auxiliary_loss,
         FLAGS.bisenet_depth,
         FLAGS.bisenet_mode_a,
-        FLAGS.mobilenet_outlevel_16)
+        FLAGS.mobilenet_outlevel_16,
+        FLAGS.use_8x_arm)
 
   def __deepcopy__(self, memo):
     return ModelOptions(copy.deepcopy(self.outputs_to_num_classes),
