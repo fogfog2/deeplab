@@ -14,7 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 """Training script for the DeepLab model.
-
 See model.py for more details and usage.
 """
 
@@ -236,7 +235,6 @@ flags.DEFINE_string(
 
 def _get_variables_to_train():
   """Returns a list of variables to train.
-
   Returns:
     A list of variables to train by the optimizer.
   """
@@ -253,7 +251,6 @@ def _get_variables_to_train():
 
 def _build_deeplab(iterator, outputs_to_num_classes, ignore_label):
   """Builds a clone of DeepLab.
-
   Args:
     iterator: An iterator of type tf.data.Iterator for images and labels.
     outputs_to_num_classes: A map from output type to the number of classes. For
@@ -285,22 +282,41 @@ def _build_deeplab(iterator, outputs_to_num_classes, ignore_label):
           'total_training_steps': FLAGS.training_number_of_steps,
       })
 
-  # Add name to graph node so we can add to summary.
-  output_type_dict = outputs_to_scales_to_logits[common.OUTPUT_TYPE]
-  output_type_dict[model.MERGED_LOGITS_SCOPE] = tf.identity(
-      output_type_dict[model.MERGED_LOGITS_SCOPE], name=common.OUTPUT_TYPE)
+  if model_options.use_context_path:
+    output_type_dict = outputs_to_scales_to_logits[common.OUTPUT_TYPE]
+    output_type_dict[model.MERGED_LOGITS_SCOPE] = tf.identity(output_type_dict[model.MERGED_LOGITS_SCOPE], name=common.OUTPUT_TYPE)
+    if model_options.use_auxiliary_loss:
+      output_type_dict['output_2'] = tf.identity(output_type_dict['output_2'], name='output_2')
+      output_type_dict['output_3'] = tf.identity(output_type_dict['output_3'], name='output_3')
 
-  for output, num_classes in six.iteritems(outputs_to_num_classes):
-    train_utils.add_softmax_cross_entropy_loss_for_each_scale(
-        outputs_to_scales_to_logits[output],
-        samples[common.LABEL],
-        num_classes,
-        ignore_label,
-        loss_weight=model_options.label_weights,
-        upsample_logits=FLAGS.upsample_logits,
-        hard_example_mining_step=FLAGS.hard_example_mining_step,
-        top_k_percent_pixels=FLAGS.top_k_percent_pixels,
-        scope=output)
+    for output, num_classes in six.iteritems(outputs_to_num_classes):
+      train_utils.add_softmax_cross_entropy_loss_for_each_scale(
+          outputs_to_scales_to_logits[output],
+          samples[common.LABEL],
+          num_classes,
+          ignore_label,
+          loss_weight=model_options.label_weights,
+          upsample_logits=FLAGS.upsample_logits,
+          hard_example_mining_step=FLAGS.hard_example_mining_step,
+          top_k_percent_pixels=FLAGS.top_k_percent_pixels,
+          scope=output)  
+  else:
+    # Add name to graph node so we can add to summary.
+    output_type_dict = outputs_to_scales_to_logits[common.OUTPUT_TYPE]
+    output_type_dict[model.MERGED_LOGITS_SCOPE] = tf.identity(
+        output_type_dict[model.MERGED_LOGITS_SCOPE], name=common.OUTPUT_TYPE)
+
+    for output, num_classes in six.iteritems(outputs_to_num_classes):
+      train_utils.add_softmax_cross_entropy_loss_for_each_scale(
+          outputs_to_scales_to_logits[output],
+          samples[common.LABEL],
+          num_classes,
+          ignore_label,
+          loss_weight=model_options.label_weights,
+          upsample_logits=FLAGS.upsample_logits,
+          hard_example_mining_step=FLAGS.hard_example_mining_step,
+          top_k_percent_pixels=FLAGS.top_k_percent_pixels,
+          scope=output)
 
 
 def main(unused_argv):
@@ -467,7 +483,7 @@ def main(unused_argv):
     # Soft placement allows placing on CPU ops without GPU implementation.
     session_config = tf.ConfigProto(
         allow_soft_placement=True, log_device_placement=False)
-
+    session_config.gpu_options.allow_growth = True
     # Start the training.
     profile_dir = FLAGS.profile_logdir
     if profile_dir is not None:
@@ -503,3 +519,4 @@ if __name__ == '__main__':
   flags.mark_flag_as_required('train_logdir')
   flags.mark_flag_as_required('dataset_dir')
   tf.app.run()
+
