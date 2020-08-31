@@ -625,7 +625,11 @@ def _get_logits(images,
   if model_options.use_context_path:    
     features_shape = features.get_shape().as_list()
     image_shape = images.get_shape().as_list()
+<<<<<<< HEAD
     if model_options.bisenet_mode_a:
+=======
+    if model_options.bisenet_mode_a == 'a':
+>>>>>>> 71300621dbbfd06edb66501813cacd0df9cb2119
       features, features_a, features_b = bisnet_module(
         features,
         images,
@@ -635,7 +639,11 @@ def _get_logits(images,
         is_training=is_training,
         fine_tune_batch_norm=fine_tune_batch_norm,
         weight_decay=weight_decay)
+<<<<<<< HEAD
     else:
+=======
+    elif model_options.bisenet_mode_a == 'b':
+>>>>>>> 71300621dbbfd06edb66501813cacd0df9cb2119
       features, features_a, features_b = bisnet_module_b(
         features,
         images,
@@ -645,6 +653,20 @@ def _get_logits(images,
         is_training=is_training,
         fine_tune_batch_norm=fine_tune_batch_norm,
         weight_decay=weight_decay)
+<<<<<<< HEAD
+=======
+    elif model_options.bisenet_mode_a == 'c':
+      features, features_a, features_b = bisnet_module_c(
+        features,
+        images,
+        end_points,
+        model_options,
+        reuse=reuse,
+        is_training=is_training,
+        fine_tune_batch_norm=fine_tune_batch_norm,
+        weight_decay=weight_decay)
+
+>>>>>>> 71300621dbbfd06edb66501813cacd0df9cb2119
     for output in sorted(model_options.outputs_to_num_classes):
       if model_options.decoder_output_is_logits:
           outputs_to_logits[output] = tf.identity(features,
@@ -756,7 +778,11 @@ def bisnet_module_b(features,
     fine_tune_batch_norm,
     weight_decay)
 
+<<<<<<< HEAD
   depth=21  
+=======
+  depth=model_options.bisenet_depth 
+>>>>>>> 71300621dbbfd06edb66501813cacd0df9cb2119
   net = feature_fusion_module(spatial_net, arm_8, depth,
     model_options,
     reuse,
@@ -783,6 +809,70 @@ def bisnet_module_b(features,
       fine_tune_batch_norm,
       weight_decay,
       'preLogit_convblock_arm8')
+<<<<<<< HEAD
+=======
+  
+  arm_16 = convblock2(arm_16, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'preLogit_convblock_arm16')
+    
+  return net, arm_8, arm_16 
+   
+def bisnet_module_c(features,
+      image,
+      end_points,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay):
+
+
+  arm_4, arm_8, arm_16 = context_path_module_c(features,
+    end_points,
+    model_options,
+    reuse,
+    is_training,
+    fine_tune_batch_norm,
+    weight_decay)
+
+  depth=model_options.bisenet_depth
+
+  if model_options.use_feature_fusion_module:
+    net = feature_fusion_module(arm_4, arm_8, depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay)
+  else:
+    net = arm_4+arm_8
+
+  depth = 256
+  net = convblock2(net, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'preLogit_convblock_ffm')
+
+  depth = 64
+  arm_8 = convblock2(arm_8, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'preLogit_convblock_arm8')
+>>>>>>> 71300621dbbfd06edb66501813cacd0df9cb2119
   
   arm_16 = convblock2(arm_16, 
       depth,
@@ -1021,6 +1111,48 @@ def context_path_module_b(features,
       is_training,
       weight_decay,
       BISE_SCOPE+"context_b_arm8")
+<<<<<<< HEAD
+
+  arm_16 = conv1by1_3(
+      arm_16,
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_b_arm16")
+    
+  arm_16 += features
+  arm_16 = _resize_bilinear(arm_16,
+                      [resize_height_16, resize_width_16],
+                      arm_16.dtype)
+
+  depth = model_options.bisenet_depth
+  arm_16 = convblock2(arm_16, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'arm_convblock16')
+
+  arm_8 += arm_16
+  arm_8 = convblock2(arm_8, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'arm_convblock16')
+  arm_8 = _resize_bilinear(arm_8,
+                      [resize_height, resize_width],
+                      arm_16.dtype)
+
+  return arm_8, arm_16
+=======
+>>>>>>> 71300621dbbfd06edb66501813cacd0df9cb2119
 
   arm_16 = conv1by1_3(
       arm_16,
@@ -1061,6 +1193,145 @@ def context_path_module_b(features,
 
   return arm_8, arm_16
 
+def context_path_module_c(features,
+      end_points,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay):
+  branch_logits =[]  
+
+  depth = model_options.bisenet_depth
+  arm_4 = conv1by1_3(
+      end_points['layer_4/depthwise_output'],
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_mn4")
+
+  if model_options.use_8x_arm:
+    arm_4 = attention_refinement_modlue(arm_4,
+          depth = depth,
+          model_options = model_options,
+          reuse = reuse,
+          is_training=is_training,
+          fine_tune_batch_norm=fine_tune_batch_norm,
+          weight_decay=weight_decay,
+          scope=ARM_SCOPE+"0") 
+
+
+  if model_options.mobilenet_outlevel_16:
+    arm_8 = conv1by1_3(
+      end_points['layer_7/depthwise_output'],
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_b_arm8")
+
+    arm_16 = conv1by1_3(
+      end_points['layer_14/depthwise_output'],
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_b_arm16")
+    
+    
+    arm_8 = attention_refinement_modlue(arm_8,
+        depth = depth,
+        model_options = model_options,
+        reuse = reuse,
+        is_training=is_training,
+        fine_tune_batch_norm=fine_tune_batch_norm,
+        weight_decay=weight_decay,
+        scope=ARM_SCOPE+"1") 
+
+    arm_16 = attention_refinement_modlue(arm_16,
+        depth = depth,
+        model_options = model_options,
+        reuse = reuse,
+        is_training=is_training,
+        fine_tune_batch_norm=fine_tune_batch_norm,
+        weight_decay=weight_decay,
+        scope=ARM_SCOPE+"2") 
+  else:
+    arm_8 = conv1by1_3(
+      end_points['layer_14/depthwise_output'],
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_b_arm8")
+
+    arm_16 = conv1by1_3(
+      end_points['layer_18/depthwise_output'],
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_b_arm16")
+
+    arm_8 = attention_refinement_modlue(arm_8,
+        depth = depth,
+        model_options = model_options,
+        reuse = reuse,
+        is_training=is_training,
+        fine_tune_batch_norm=fine_tune_batch_norm,
+        weight_decay=weight_decay,
+        scope=ARM_SCOPE+"1") 
+
+    arm_16 = attention_refinement_modlue(arm_16,
+        depth = depth,
+        model_options = model_options,
+        reuse = reuse,
+        is_training=is_training,
+        fine_tune_batch_norm=fine_tune_batch_norm,
+        weight_decay=weight_decay,
+        scope=ARM_SCOPE+"2") 
+
+  resize_height = tf.shape(arm_4)[1]
+  resize_width = tf.shape(arm_4)[2]
+
+  resize_height_16 = tf.shape(arm_8)[1]
+  resize_width_16 = tf.shape(arm_8)[2]
+
+    
+  arm_16 += features
+  arm_16 = _resize_bilinear(arm_16,
+                      [resize_height_16, resize_width_16],
+                      arm_16.dtype)
+
+  arm_16 = convblock2(arm_16, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'arm_convblock16')
+
+  arm_8 += arm_16
+  arm_8 = convblock2(arm_8, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'arm_convblock16')
+  arm_8 = _resize_bilinear(arm_8,
+                      [resize_height, resize_width],
+                      arm_16.dtype)
+
+  return arm_4, arm_8, arm_16
     
 def attention_refinement_modlue(
       features,
