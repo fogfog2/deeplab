@@ -29,10 +29,14 @@ from nets import mobilenet_v1
 from nets import overfeat
 from nets import resnet_v1
 from nets import resnet_v2
+
 from nets import s3dg
 from nets import vgg
 from nets.mobilenet import mobilenet_v2
 from nets.mobilenet import mobilenet_v3
+
+from nets.mobilenet import rexnet
+
 from nets.nasnet import nasnet
 from nets.nasnet import pnasnet
 
@@ -78,6 +82,7 @@ networks_map = {
     'nasnet_large': nasnet.build_nasnet_large,
     'pnasnet_large': pnasnet.build_pnasnet_large,
     'pnasnet_mobile': pnasnet.build_pnasnet_mobile,
+    'rexnet': rexnet.mobilenet,
 }
 
 arg_scopes_map = {
@@ -121,6 +126,7 @@ arg_scopes_map = {
     'nasnet_large': nasnet.nasnet_large_arg_scope,
     'pnasnet_large': pnasnet.pnasnet_large_arg_scope,
     'pnasnet_mobile': pnasnet.pnasnet_mobile_arg_scope,
+    'rexnet' : rexnet.training_scope,
 }
 
 
