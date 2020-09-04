@@ -646,15 +646,16 @@ def _get_logits(images,
         fine_tune_batch_norm=fine_tune_batch_norm,
         weight_decay=weight_decay)
     elif model_options.bisenet_mode_a == 'c':
-      features, features_a, features_b = bisnet_module_c(
-        features,
-        images,
-        end_points,
-        model_options,
-        reuse=reuse,
-        is_training=is_training,
-        fine_tune_batch_norm=fine_tune_batch_norm,
-        weight_decay=weight_decay)
+      with tf.variable_scope('Bisenet'):
+        features, features_a, features_b = bisnet_module_c(
+          features,
+          images,
+          end_points,
+          model_options,
+          reuse=reuse,
+          is_training=is_training,
+          fine_tune_batch_norm=fine_tune_batch_norm,
+          weight_decay=weight_decay)
 
     for output in sorted(model_options.outputs_to_num_classes):
       if model_options.decoder_output_is_logits:
@@ -670,24 +671,25 @@ def _get_logits(images,
               weight_decay=weight_decay,
               reuse=reuse,
               scope_suffix=output)
-          outputs_to_logits['output_2'] = get_branch_logits(
-              features_a,
-              model_options.outputs_to_num_classes[output],
-              model_options.atrous_rates,
-              aspp_with_batch_norm=model_options.aspp_with_batch_norm,
-              kernel_size=model_options.logits_kernel_size,
-              weight_decay=weight_decay,
-              reuse=reuse,
-              scope_suffix=output+'_2')
-          outputs_to_logits['output_3'] = get_branch_logits(
-              features_b,
-              model_options.outputs_to_num_classes[output],
-              model_options.atrous_rates,
-              aspp_with_batch_norm=model_options.aspp_with_batch_norm,
-              kernel_size=model_options.logits_kernel_size,
-              weight_decay=weight_decay,
-              reuse=reuse,
-              scope_suffix=output+'_3')
+          if is_training:
+            outputs_to_logits['output_2'] = get_branch_logits(
+                features_a,
+                model_options.outputs_to_num_classes[output],
+                model_options.atrous_rates,
+                aspp_with_batch_norm=model_options.aspp_with_batch_norm,
+                kernel_size=model_options.logits_kernel_size,
+                weight_decay=weight_decay,
+                reuse=reuse,
+                scope_suffix=output+'_2')
+            outputs_to_logits['output_3'] = get_branch_logits(
+                features_b,
+                model_options.outputs_to_num_classes[output],
+                model_options.atrous_rates,
+                aspp_with_batch_norm=model_options.aspp_with_batch_norm,
+                kernel_size=model_options.logits_kernel_size,
+                weight_decay=weight_decay,
+                reuse=reuse,
+                scope_suffix=output+'_3')
   else:
     for output in sorted(model_options.outputs_to_num_classes):
       if model_options.decoder_output_is_logits:
@@ -815,55 +817,58 @@ def bisnet_module_c(features,
       fine_tune_batch_norm,
       weight_decay):
 
-
-  arm_4, arm_8, arm_16 = context_path_module_c(features,
-    end_points,
-    model_options,
-    reuse,
-    is_training,
-    fine_tune_batch_norm,
-    weight_decay)
-
-  depth=model_options.bisenet_depth
-
-  if model_options.use_feature_fusion_module:
-    net = feature_fusion_module(arm_4, arm_8, depth,
+  with tf.variable_scope('Context_Path'):
+    arm_4, arm_8, arm_16 = context_path_module_c(features,
+      end_points,
       model_options,
       reuse,
       is_training,
       fine_tune_batch_norm,
       weight_decay)
+
+  depth=model_options.bisenet_depth
+
+  if model_options.use_feature_fusion_module:
+    with tf.variable_scope('Feature_Fusion_Module'):
+      net = feature_fusion_module(arm_4, arm_8, depth,
+        model_options,
+        reuse,
+        is_training,
+        fine_tune_batch_norm,
+        weight_decay)
   else:
     net = arm_4+arm_8
 
-  depth = 256
-  net = convblock2(net, 
-      depth,
-      model_options,
-      reuse,
-      is_training,
-      fine_tune_batch_norm,
-      weight_decay,
-      'preLogit_convblock_ffm')
-
-  depth = 64
-  arm_8 = convblock2(arm_8, 
-      depth,
-      model_options,
-      reuse,
-      is_training,
-      fine_tune_batch_norm,
-      weight_decay,
-      'preLogit_convblock_arm8')
-  
-  arm_16 = convblock2(arm_16, 
-      depth,
-      model_options,
-      reuse,
-      is_training,
-      fine_tune_batch_norm,
-      weight_decay,
-      'preLogit_convblock_arm16')
+  depth = model_options.bisenet_depth
+  with tf.variable_scope('PreLogit'):
+    net = convblock2(net, 
+        depth,
+        model_options,
+        reuse,
+        is_training,
+        fine_tune_batch_norm,
+        weight_decay,
+        'preLogit_convblock_ffm')
+    
+    if is_training:
+      depth = 64
+      arm_8 = convblock2(arm_8, 
+          depth,
+          model_options,
+          reuse,
+          is_training,
+          fine_tune_batch_norm,
+          weight_decay,
+          'preLogit_convblock_arm8')
+      
+      arm_16 = convblock2(arm_16, 
+          depth,
+          model_options,
+          reuse,
+          is_training,
+          fine_tune_batch_norm,
+          weight_decay,
+          'preLogit_convblock_arm16')
     
   return net, arm_8, arm_16   
 
@@ -1143,6 +1148,7 @@ def context_path_module_c(features,
   branch_logits =[]  
 
   depth = model_options.bisenet_depth
+  
   arm_4 = conv1by1_3(
       end_points['layer_4/depthwise_output'],
       depth,
@@ -1282,29 +1288,29 @@ def attention_refinement_modlue(
       fine_tune_batch_norm,
       weight_decay,
       scope):
-  
-  #global pool
-  resize_height = tf.shape(features)[1]
-  resize_width = tf.shape(features)[2]
+  with tf.variable_scope('Attention_Refinement_Module'):
+    #global pool
+    resize_height = tf.shape(features)[1]
+    resize_width = tf.shape(features)[2]
 
-  image_feature = tf.reduce_mean(
-      features, axis=[1, 2], keepdims=True)
-              
-  #1x1conv, #batchnorm #sigmoid(relu)
-  image_feature = conv1by1(
-      image_feature,
-      depth,
-      model_options,
-      reuse,
-      is_training,
-      fine_tune_batch_norm,
-      weight_decay,
-      scope+"arm_1x1")
-  image_feature = _resize_bilinear(image_feature,
-                      [resize_height, resize_width],
-                      image_feature.dtype)
+    image_feature = tf.reduce_mean(
+        features, axis=[1, 2], keepdims=True)
+                
+    #1x1conv, #batchnorm #sigmoid(relu)
+    image_feature = conv1by1(
+        image_feature,
+        depth,
+        model_options,
+        reuse,
+        is_training,
+        fine_tune_batch_norm,
+        weight_decay,
+        scope+"arm_1x1")
+    image_feature = _resize_bilinear(image_feature,
+                        [resize_height, resize_width],
+                        image_feature.dtype)
 
-  features *=image_feature
+    features *=image_feature
 
   return features
   
