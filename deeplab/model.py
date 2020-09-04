@@ -656,6 +656,17 @@ def _get_logits(images,
           is_training=is_training,
           fine_tune_batch_norm=fine_tune_batch_norm,
           weight_decay=weight_decay)
+    elif model_options.bisenet_mode_a == 'd':
+      with tf.variable_scope('Bisenet'):
+        features, features_a, features_b = bisnet_module_d(
+          features,
+          images,
+          end_points,
+          model_options,
+          reuse=reuse,
+          is_training=is_training,
+          fine_tune_batch_norm=fine_tune_batch_norm,
+          weight_decay=weight_decay)
 
     for output in sorted(model_options.outputs_to_num_classes):
       if model_options.decoder_output_is_logits:
@@ -872,6 +883,78 @@ def bisnet_module_c(features,
     
   return net, arm_8, arm_16   
 
+def bisnet_module_d(features,
+      image,
+      end_points,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay):
+
+  with tf.variable_scope('Context_Path'):
+    arm_4, arm_8, arm_16 = context_path_module_d(features,
+      end_points,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay)
+
+  depth=model_options.bisenet_depth
+
+  if model_options.use_feature_fusion_module:
+    # with tf.variable_scope('Feature_Fusion_Module'):
+    #   net = feature_fusion_module(arm_4, arm_8, depth,
+    #     model_options,
+    #     reuse,
+    #     is_training,
+    #     fine_tune_batch_norm,
+    #     weight_decay)
+    with tf.variable_scope('bilateral_guided_aggregation_module'):
+      net = bilateral_guided_aggregation_module(arm_4, arm_16, depth,
+        model_options,
+        reuse,
+        is_training,
+        fine_tune_batch_norm,
+        weight_decay)
+
+  else:
+    net = arm_4+arm_8
+
+  depth = model_options.bisenet_depth
+  with tf.variable_scope('PreLogit'):
+    net = convblock2(net, 
+        depth,
+        model_options,
+        reuse,
+        is_training,
+        fine_tune_batch_norm,
+        weight_decay,
+        'preLogit_convblock_ffm')
+    
+    if is_training:
+      depth = 64
+      arm_8 = convblock2(arm_8, 
+          depth,
+          model_options,
+          reuse,
+          is_training,
+          fine_tune_batch_norm,
+          weight_decay,
+          'preLogit_convblock_arm8')
+      
+      arm_16 = convblock2(arm_16, 
+          depth,
+          model_options,
+          reuse,
+          is_training,
+          fine_tune_batch_norm,
+          weight_decay,
+          'preLogit_convblock_arm16')
+    
+  return net, arm_8, arm_16   
+
 def feature_fusion_module(spatial_net, context_net, depth,
     model_options,
     reuse,
@@ -940,6 +1023,53 @@ def ffm_sub_modlue(
   features +=features_a
 
   return features
+
+def bilateral_guided_aggregation_module(spatial_net, context_net, depth,
+    model_options,
+    reuse,
+    is_training,
+    fine_tune_batch_norm,
+    weight_decay):
+  
+
+  detail_net_dw = dwconvblock1(spatial_net, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      None,
+      weight_decay,
+      'spatial_dwconv')
+
+  semantic_net_dw = dwconvblock1(context_net, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      tf.nn.sigmoid,
+      weight_decay,
+      'context_dwconv')
+
+  detail_net_down = detail_conv(spatial_net, depth, model_options, reuse, is_training, fine_tune_batch_norm, weight_decay, 'detail_downscale')
+  semantic_net_up = semantic_conv(context_net, spatial_net, depth, model_options, reuse, is_training, fine_tune_batch_norm, weight_decay, 'semantic_upscale')
+
+  with tf.variable_scope('multi_1'):
+    detail_agg = detail_net_dw * semantic_net_up
+  with tf.variable_scope('multi_2'):    
+    semantic_agg = semantic_net_dw * detail_net_down
+
+  resize_height = tf.shape(detail_agg)[1]
+  resize_width = tf.shape(detail_agg)[2]
+  semantic_agg = _resize_bilinear(semantic_agg,
+                      [resize_height, resize_width],
+                      semantic_agg.dtype)
+
+  net = detail_agg + semantic_agg
+  net = convbn(net, depth, model_options, reuse, is_training, fine_tune_batch_norm, weight_decay, 'aggregation_last_conv')
+
+  return net
 
 def spatial_path_module( image,
       model_options,
@@ -1150,7 +1280,7 @@ def context_path_module_c(features,
   depth = model_options.bisenet_depth
   
   arm_4 = conv1by1_3(
-      end_points['layer_4/depthwise_output'],
+      end_points['layer_7/depthwise_output'],
       depth,
       model_options,
       reuse,
@@ -1188,24 +1318,24 @@ def context_path_module_c(features,
       weight_decay,
       BISE_SCOPE+"context_b_arm16")
     
-    
-    arm_8 = attention_refinement_modlue(arm_8,
-        depth = depth,
-        model_options = model_options,
-        reuse = reuse,
-        is_training=is_training,
-        fine_tune_batch_norm=fine_tune_batch_norm,
-        weight_decay=weight_decay,
-        scope=ARM_SCOPE+"1") 
+    if model_options.use_attention_refinement_module:
+      arm_8 = attention_refinement_modlue(arm_8,
+          depth = depth,
+          model_options = model_options,
+          reuse = reuse,
+          is_training=is_training,
+          fine_tune_batch_norm=fine_tune_batch_norm,
+          weight_decay=weight_decay,
+          scope=ARM_SCOPE+"1") 
 
-    arm_16 = attention_refinement_modlue(arm_16,
-        depth = depth,
-        model_options = model_options,
-        reuse = reuse,
-        is_training=is_training,
-        fine_tune_batch_norm=fine_tune_batch_norm,
-        weight_decay=weight_decay,
-        scope=ARM_SCOPE+"2") 
+      arm_16 = attention_refinement_modlue(arm_16,
+          depth = depth,
+          model_options = model_options,
+          reuse = reuse,
+          is_training=is_training,
+          fine_tune_batch_norm=fine_tune_batch_norm,
+          weight_decay=weight_decay,
+          scope=ARM_SCOPE+"2") 
   else:
     arm_8 = conv1by1_3(
       end_points['layer_14/depthwise_output'],
@@ -1224,24 +1354,24 @@ def context_path_module_c(features,
       is_training,
       weight_decay,
       BISE_SCOPE+"context_b_arm16")
+    if model_options.use_attention_refinement_module:
+      arm_8 = attention_refinement_modlue(arm_8,
+          depth = depth,
+          model_options = model_options,
+          reuse = reuse,
+          is_training=is_training,
+          fine_tune_batch_norm=fine_tune_batch_norm,
+          weight_decay=weight_decay,
+          scope=ARM_SCOPE+"1") 
 
-    arm_8 = attention_refinement_modlue(arm_8,
-        depth = depth,
-        model_options = model_options,
-        reuse = reuse,
-        is_training=is_training,
-        fine_tune_batch_norm=fine_tune_batch_norm,
-        weight_decay=weight_decay,
-        scope=ARM_SCOPE+"1") 
-
-    arm_16 = attention_refinement_modlue(arm_16,
-        depth = depth,
-        model_options = model_options,
-        reuse = reuse,
-        is_training=is_training,
-        fine_tune_batch_norm=fine_tune_batch_norm,
-        weight_decay=weight_decay,
-        scope=ARM_SCOPE+"2") 
+      arm_16 = attention_refinement_modlue(arm_16,
+          depth = depth,
+          model_options = model_options,
+          reuse = reuse,
+          is_training=is_training,
+          fine_tune_batch_norm=fine_tune_batch_norm,
+          weight_decay=weight_decay,
+          scope=ARM_SCOPE+"2") 
 
   resize_height = tf.shape(arm_4)[1]
   resize_width = tf.shape(arm_4)[2]
@@ -1276,6 +1406,124 @@ def context_path_module_c(features,
   arm_8 = _resize_bilinear(arm_8,
                       [resize_height, resize_width],
                       arm_16.dtype)
+
+  return arm_4, arm_8, arm_16
+
+def context_path_module_d(features,
+      end_points,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay):
+  branch_logits =[]  
+
+  depth = model_options.bisenet_depth
+  
+  arm_4 = conv1by1_3(
+      end_points['layer_7/depthwise_output'],
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_mn4")
+
+  if model_options.use_attention_refinement_module:
+    if model_options.use_8x_arm:
+      arm_4 = attention_refinement_modlue(arm_4,
+            depth = depth,
+            model_options = model_options,
+            reuse = reuse,
+            is_training=is_training,
+            fine_tune_batch_norm=fine_tune_batch_norm,
+            weight_decay=weight_decay,
+            scope=ARM_SCOPE+"0") 
+
+
+  if model_options.mobilenet_outlevel_16:
+    arm_8 = conv1by1_3(
+      end_points['layer_7/depthwise_output'],
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_b_arm8")
+
+    arm_16 = conv1by1_3(
+      end_points['layer_14/depthwise_output'],
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_b_arm16")
+    
+    if model_options.use_attention_refinement_module:
+      arm_8 = attention_refinement_modlue(arm_8,
+          depth = depth,
+          model_options = model_options,
+          reuse = reuse,
+          is_training=is_training,
+          fine_tune_batch_norm=fine_tune_batch_norm,
+          weight_decay=weight_decay,
+          scope=ARM_SCOPE+"1") 
+
+      arm_16 = attention_refinement_modlue(arm_16,
+          depth = depth,
+          model_options = model_options,
+          reuse = reuse,
+          is_training=is_training,
+          fine_tune_batch_norm=fine_tune_batch_norm,
+          weight_decay=weight_decay,
+          scope=ARM_SCOPE+"2") 
+  else:
+    arm_8 = conv1by1_3(
+      end_points['layer_14/depthwise_output'],
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_b_arm8")
+
+    arm_16 = conv1by1_3(
+      end_points['layer_18/depthwise_output'],
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      weight_decay,
+      BISE_SCOPE+"context_b_arm16")
+
+    if model_options.use_attention_refinement_module:
+      arm_16 = attention_refinement_modlue(arm_16,
+          depth = depth,
+          model_options = model_options,
+          reuse = reuse,
+          is_training=is_training,
+          fine_tune_batch_norm=fine_tune_batch_norm,
+          weight_decay=weight_decay,
+          scope=ARM_SCOPE+"2") 
+
+  resize_height_16 = tf.shape(arm_16)[1]
+  resize_width_16 = tf.shape(arm_16)[2]
+
+    
+  arm_16 += features
+  arm_16 = _resize_bilinear(arm_16,
+                      [resize_height_16, resize_width_16],
+                      arm_16.dtype)
+
+  arm_16 = convblock2(arm_16, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      'arm_convblock16')
 
   return arm_4, arm_8, arm_16
     
@@ -1474,6 +1722,158 @@ def convblock2(features,
                       features, depth, 3,
                       activation_fn=image_feature_activation_fn,
                       normalizer_fn=image_feature_normalizer_fn)
+  return features
+
+def convbn(features, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      scope):
+  #1x1conv, #batchnorm #sigmoid(relu)
+  batch_norm_params = utils.get_batch_norm_params(
+          decay=0.9997,
+          epsilon=1e-5,
+          scale=True,
+          is_training=(is_training and fine_tune_batch_norm),
+          sync_batch_norm_method=model_options.sync_batch_norm_method)
+  batch_norm = utils.get_batch_norm_fn(
+         model_options.sync_batch_norm_method)
+
+  with slim.arg_scope(
+        [slim.conv2d, slim.separable_conv2d],
+        weights_regularizer=slim.l2_regularizer(weight_decay),
+        normalizer_fn=batch_norm,
+        padding='SAME',
+        scope=scope,
+        stride=1,
+        reuse=reuse):
+    with slim.arg_scope([batch_norm], **batch_norm_params):
+        image_feature_normalizer_fn = batch_norm
+        features = slim.conv2d(
+                      features, depth, 3,
+                      normalizer_fn=image_feature_normalizer_fn)
+  return features
+
+def dwconvblock1(features, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      activation_function,
+      weight_decay,
+      scope):
+  #1x1conv, #batchnorm #sigmoid(relu)
+  batch_norm_params = utils.get_batch_norm_params(
+          decay=0.9997,
+          epsilon=1e-5,
+          scale=True,
+          is_training=(is_training and fine_tune_batch_norm),
+          sync_batch_norm_method=model_options.sync_batch_norm_method)
+  batch_norm = utils.get_batch_norm_fn(
+         model_options.sync_batch_norm_method)
+  activation_fn = tf.nn.relu6
+
+  with slim.arg_scope(
+        [slim.conv2d, slim.separable_conv2d],
+        weights_regularizer=slim.l2_regularizer(weight_decay),
+        padding='SAME',
+        scope=scope,
+        stride=1,
+        reuse=reuse):
+    with slim.arg_scope([batch_norm], **batch_norm_params):
+        image_feature_normalizer_fn = batch_norm
+        kernel_size = [3, 3]
+        features = slim.separable_conv2d(
+          features,
+          None,
+          kernel_size,
+          depth_multiplier=1,
+          stride=1,
+          normalizer_fn=image_feature_normalizer_fn,
+          scope = scope+"dwconv")
+
+        features = slim.conv2d(features, depth, 1,activation_fn=activation_function)
+  return features
+
+def detail_conv(features, 
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      scope):
+  #1x1conv, #batchnorm #sigmoid(relu)
+  batch_norm_params = utils.get_batch_norm_params(
+          decay=0.9997,
+          epsilon=1e-5,
+          scale=True,
+          is_training=(is_training and fine_tune_batch_norm),
+          sync_batch_norm_method=model_options.sync_batch_norm_method)
+  batch_norm = utils.get_batch_norm_fn(
+         model_options.sync_batch_norm_method)
+  activation_fn = tf.nn.relu6
+
+  with slim.arg_scope(
+        [slim.conv2d, slim.separable_conv2d],
+        weights_regularizer=slim.l2_regularizer(weight_decay),
+        padding='SAME',
+        scope=scope,
+        stride=2,
+        reuse=reuse):
+    with slim.arg_scope([batch_norm], **batch_norm_params):
+        image_feature_normalizer_fn = batch_norm
+        kernel_size = [3, 3]
+        features = slim.conv2d(features, depth, 3, stride = 2,
+            normalizer_fn=image_feature_normalizer_fn)
+
+        features = slim.avg_pool2d(
+                  features, [3, 3], 2, padding='SAME')
+  return features
+
+
+def semantic_conv(features, 
+      detail_feature,
+      depth,
+      model_options,
+      reuse,
+      is_training,
+      fine_tune_batch_norm,
+      weight_decay,
+      scope):
+  #1x1conv, #batchnorm #sigmoid(relu)
+  batch_norm_params = utils.get_batch_norm_params(
+          decay=0.9997,
+          epsilon=1e-5,
+          scale=True,
+          is_training=(is_training and fine_tune_batch_norm),
+          sync_batch_norm_method=model_options.sync_batch_norm_method)
+  batch_norm = utils.get_batch_norm_fn(
+         model_options.sync_batch_norm_method)
+  activation_fn = tf.nn.relu6
+
+  resize_height = tf.shape(detail_feature)[1]
+  resize_width = tf.shape(detail_feature)[2]
+  with slim.arg_scope(
+        [slim.conv2d, slim.separable_conv2d],
+        weights_regularizer=slim.l2_regularizer(weight_decay),
+        padding='SAME',
+        scope=scope,
+        stride=1,
+        reuse=reuse):
+    with slim.arg_scope([batch_norm], **batch_norm_params):
+        image_feature_normalizer_fn = batch_norm
+        kernel_size = [3, 3]
+        features = slim.conv2d(features, depth, 3,
+            normalizer_fn=image_feature_normalizer_fn)
+        features = _resize_bilinear(features, 
+                        [resize_height, resize_width],
+                        features.dtype)
+        
   return features
 
 def refine_by_decoder(features,
