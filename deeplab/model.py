@@ -889,7 +889,7 @@ def bisnet_module_d(features,
       reuse,
       is_training,
       fine_tune_batch_norm,
-      weight_decay)
+      weight_decay):
       
   with tf.variable_scope('Context_Path'):
     arm_4, arm_8, arm_16 = context_path_module_d(features,
@@ -1279,7 +1279,7 @@ def context_path_module_c(features,
   depth = model_options.bisenet_depth
   
   arm_4 = conv1by1_3(
-      end_points['layer_7/depthwise_output'],
+      end_points['layer_6/depthwise_output'],
       depth,
       model_options,
       reuse,
@@ -1337,7 +1337,7 @@ def context_path_module_c(features,
           scope=ARM_SCOPE+"2") 
   else:
     arm_8 = conv1by1_3(
-      end_points['layer_14/depthwise_output'],
+      end_points['layer_12/depthwise_output'],
       depth,
       model_options,
       reuse,
@@ -1346,7 +1346,7 @@ def context_path_module_c(features,
       BISE_SCOPE+"context_b_arm8")
 
     arm_16 = conv1by1_3(
-      end_points['layer_18/depthwise_output'],
+      end_points['layer_17/depthwise_output'],
       depth,
       model_options,
       reuse,

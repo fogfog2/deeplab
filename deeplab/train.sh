@@ -28,16 +28,16 @@ INIT_FOLDER="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/init_models"
 ################################################################
 
 PASCAL_DATASET="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/tfrecord_coco"
-NUM_ITERATIONS=360000
-INIT_CHECKPOINT="${INIT_FOLDER}/mobilenet_v2_1.0_224/mobilenet_v2_1.0_224.ckpt" 
-TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_a"
+NUM_ITERATIONS=120000
+INIT_CHECKPOINT="${INIT_FOLDER}/rexnet/model.ckpt-4052850" 
+TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_c"
 
 
 python "${WORK_DIR}"/train.py \
   --logtostderr \
   --train_split="train" \
-  --model_variant="mobilenet_v2" \
-  --output_stride=16 \
+  --model_variant="rexnet" \
+  --output_stride=32 \
   --train_crop_size="513,513" \
   --train_batch_size=12 \
   --learning_policy="poly" \
@@ -51,16 +51,17 @@ python "${WORK_DIR}"/train.py \
   --bisenet_depth=256 \
   --use_feature_fusion_module=false
 
-cp -r "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_a" "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_a1"
-cp -r "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_a" "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_a2"
+
+cp -r "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_c" "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_c1"
+cp -r "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_c" "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_c2"
 
 
 
-TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_b"
+TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_d"
 python "${WORK_DIR}"/train.py \
   --logtostderr \
   --train_split="train" \
-  --model_variant="mobilenet_v2" \
+  --model_variant="rexnet" \
   --output_stride=16 \
   --train_crop_size="513,513" \
   --train_batch_size=12 \
@@ -75,21 +76,21 @@ python "${WORK_DIR}"/train.py \
   --bisenet_depth=256 \
   --use_feature_fusion_module=true
 
-cp -r "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_b" "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_b1"
-cp -r "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_b" "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_b2"
+cp -r "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_d" "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_d1"
+cp -r "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_d" "${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_d2"
 
 
 ###########################################################################################################################
 
 PASCAL_DATASET="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/tfrecord"
-NUM_ITERATIONS=400000
-TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_a1"
+NUM_ITERATIONS=150000
+TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_c1"
 
 python "${WORK_DIR}"/train.py \
   --logtostderr \
   --train_split="train" \
-  --model_variant="mobilenet_v2" \
-  --output_stride=16 \
+  --model_variant="rexnet" \
+  --output_stride=32 \
   --train_crop_size="513,513" \
   --train_batch_size=12 \
   --learning_policy="poly" \
@@ -104,13 +105,13 @@ python "${WORK_DIR}"/train.py \
   --use_feature_fusion_module=false
 
 
-TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_a2"
+TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_c2"
 
 python "${WORK_DIR}"/train.py \
   --logtostderr \
   --train_split="train" \
-  --model_variant="mobilenet_v2" \
-  --output_stride=16 \
+  --model_variant="rexnet" \
+  --output_stride=32 \
   --train_crop_size="513,513" \
   --train_batch_size=12 \
   --learning_policy="poly" \
@@ -127,14 +128,14 @@ python "${WORK_DIR}"/train.py \
 ###########################################################################################################################
 
 PASCAL_DATASET="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/tfrecord"
-NUM_ITERATIONS=400000
-TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_b1"
+NUM_ITERATIONS=150000
+TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_d1"
 
 python "${WORK_DIR}"/train.py \
   --logtostderr \
   --train_split="train" \
-  --model_variant="mobilenet_v2" \
-  --output_stride=16 \
+  --model_variant="rexnet" \
+  --output_stride=32 \
   --train_crop_size="513,513" \
   --train_batch_size=12 \
   --learning_policy="poly" \
@@ -149,13 +150,13 @@ python "${WORK_DIR}"/train.py \
   --use_feature_fusion_module=true
 
 
-TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_b2"
+TRAIN_LOGDIR="${WORK_DIR}/${DATASET_DIR}/${PASCAL_FOLDER}/${EXP_FOLDER}/train_test25_d2"
 
 python "${WORK_DIR}"/train.py \
   --logtostderr \
   --train_split="train" \
-  --model_variant="mobilenet_v2" \
-  --output_stride=16 \
+  --model_variant="rexnet" \
+  --output_stride=32 \
   --train_crop_size="513,513" \
   --train_batch_size=12 \
   --learning_policy="poly" \
