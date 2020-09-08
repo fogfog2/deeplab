@@ -78,16 +78,16 @@ def _rexnet_v1(net,
   if divisible_by is None:
     divisible_by = 8 if depth_multiplier == 1.0 else 1
   if conv_defs is None:
-    conv_defs = mobilenet_v2.V2_DEF
+    conv_defs = rexnet.V1_DEF
   with tf.variable_scope(
-      scope, 'MobilenetV2', [net], reuse=reuse) as scope:
-    return mobilenet_v2.mobilenet_base(
+      scope, 'rexnet', [net], reuse=reuse) as scope:
+    return rexnet.mobilenet_base(
         net,
         conv_defs=conv_defs,
         depth_multiplier=depth_multiplier,
         min_depth=8 if depth_multiplier == 1.0 else 1,
         divisible_by=divisible_by,
-        final_endpoint=final_endpoint or _MOBILENET_V2_FINAL_ENDPOINT,
+        final_endpoint=final_endpoint or _REXNET_FINAL_ENDPOINT,
         output_stride=output_stride,
         scope=scope)
 
