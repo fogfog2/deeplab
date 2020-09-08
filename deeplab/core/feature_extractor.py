@@ -80,7 +80,7 @@ def _rexnet_v1(net,
   if conv_defs is None:
     conv_defs = rexnet.V1_DEF
   with tf.variable_scope(
-      scope, 'rexnet', [net], reuse=reuse) as scope:
+      scope, 'Resnet', [net], reuse=reuse) as scope:
     return rexnet.mobilenet_base(
         net,
         conv_defs=conv_defs,
@@ -775,7 +775,7 @@ def extract_features(images,
             divisible_by=divisible_by,
             output_stride=output_stride,
             reuse=reuse,
-            scope=name_scope[model_variant],
+            scope='Resnet',
             final_endpoint=final_endpoint)
   elif model_variant.startswith('nas'):
     arg_scope = arg_scopes_map[model_variant](
