@@ -330,7 +330,7 @@ def multi_scale_logits(images,
       for output in sorted(model_options.outputs_to_num_classes):
         outputs_to_scales_to_logits[output][
              MERGED_LOGITS_SCOPE] = outputs_to_logits[output]
-        if model_options.use_auxiliary_loss:
+        if is_training and model_options.use_auxiliary_loss:
           outputs_to_scales_to_logits[output][
             'output_2'] = outputs_to_logits['output_2']
           outputs_to_scales_to_logits[output][
@@ -523,8 +523,9 @@ def extract_features(images,
               branch_logits.append(image_feature)
 
           # Employ a 1x1 convolution.
-          #branch_logits.append(slim.conv2d(features, depth, 1,
-          #                                 scope=ASPP_SCOPE + str(0)))
+          if not model_options.use_context_path:
+            branch_logits.append(slim.conv2d(features, depth, 1,
+                                            scope=ASPP_SCOPE + str(0)))
 
           if model_options.atrous_rates:
             # Employ 3x3 convolutions with different atrous rates.
@@ -681,7 +682,7 @@ def _get_logits(images,
               weight_decay=weight_decay,
               reuse=reuse,
               scope_suffix=output)
-          if is_training:
+          if is_training and model_options.use_auxiliary_loss:
             outputs_to_logits['output_2'] = get_branch_logits(
                 features_a,
                 model_options.outputs_to_num_classes[output],

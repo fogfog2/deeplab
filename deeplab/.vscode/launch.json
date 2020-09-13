@@ -21,7 +21,8 @@
                 "--fine_tune_batch_norm=true",
                 "--train_logdir=./datasets/pascal_voc_seg/exp/train_on_trainaug_set/train_test25_a",
                 "--dataset_dir=./datasets/pascal_voc_seg/tfrecord_coco",
-                "--num_clones=1"]
+                "--num_clones=1",
+                "--use_context_path=false"]
         }
     ]
 }
